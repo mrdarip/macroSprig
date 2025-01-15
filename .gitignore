@@ -1,0 +1,4 @@
+#build output except .uf2 files
+build/*
+!build/*.uf2
+*/*ino.elf
