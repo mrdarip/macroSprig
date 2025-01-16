@@ -124,11 +124,36 @@ public:
 
   bool isPressed()
   {
-    return digitalRead(pin) == LOW;
+    bool pressed = digitalRead(pin) == LOW;
+
+    if(pressed){
+      if(millis == 0){
+        pressedMilli = millis();
+        return true;
+      }
+    } else{
+      pressedMilli = 0;
+    }
+
+    return false;
+  }
+
+  bool isHold(){
+    return getPressedTime() > holdTreshold;
   }
 
 private:
   int pin;
+  unsigned long pressedMilli;
+  const unsigned long holdTreshold = 500;
+
+  unsigned long getPressedTime(){
+    unsigned long pressedTime = millis()-pressedMilli;
+    if(pressedMilli == 0){
+      return 0;
+    }
+    return pressedMilli;
+  }
 };
 
 int pins[] = {5, 6, 7, 8, 12, 13, 14, 15};
@@ -197,11 +222,6 @@ void setup()
   KeyBoardAction *actionK = new KeyBoardAction();
   actionK->add(Key(KEY_LEFT_CTRL, PRESS)).add(Key('v', PRESS_AND_RELEASE)).add(Key(KEY_LEFT_CTRL, RELEASE));
   actionsScreen.setAction(6, actionK);
-
-  for (int i = 0; i < 8; i++)
-  {
-    buttons[i] = Button(pins[i]);
-  }
 }
 
 void loop()
