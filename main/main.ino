@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#line 1 "/home/mrdarip/git/macroSprig/main/main.ino"
+
 // screen libraries
 #include <Adafruit_GFX.h>
 #include <Adafruit_ST7735.h>
@@ -8,6 +8,7 @@
 // SD library
 #include <SD.h>
 // SPI.h shared with screen
+#include <ArduinoJson.h>
 
 #include <vector>
 #include <Keyboard.h>
@@ -89,26 +90,36 @@ private:
 class ActionsScreen
 {
 public:
-  void setAction(int index, KeyBoardAction *action)
+  void setAction(int index, KeyBoardAction *action, ActionType actionType)
   {
-    if (index < 0 || index > 7)
+    if (index < 0 || index > 7 || actionType == PRESS_AND_RELEASE) //press and release is not allowed
     {
       return;
     }
-    actions[index] = action;
+
+    if(actionType == PRESS){
+      actionsPress[index] = action;
+    } else if(actionType == RELEASE){
+      actionsRelease[index] = action;
+    }
   }
 
-  void executeAction(int index)
+  void executeAction(int index, ActionType actionType)
   {
-    if (index < 0 || index > 7)
+    if (index < 0 || index > 7 || actionType == PRESS_AND_RELEASE) //press and release is not allowed
     {
       return;
     }
-    actions[index]->execute();
-  }
 
+    if(actionType == PRESS){
+      actionsPress[index]->execute();
+    } else if(actionType == RELEASE){
+      actionsRelease[index]->execute();
+    }
+  }
 private:
-  KeyBoardAction *actions[8];
+  KeyBoardAction *actionsPress[8];
+  KeyBoardAction *actionsRelease[8];
 };
 
 ActionsScreen actionsScreen;
@@ -178,50 +189,39 @@ void setup()
   screen.fillScreen(ST77XX_BLACK);
   screen.setRotation(3);
 
+
+  Keyboard.begin();
+
+  //get the macrosprig.json file
+  File macroFile = SD.open("/macrosprig.json");
+  if (macroFile)
+  {
+    Serial.println("macrosprig.json found");
+    macroFile.close();
+  }
+  else
+  {
+    Serial.println("macrosprig.json not found");
+  }
+
   Serial.println("Sprig is ready");
 
+  StaticJsonDocument<2048> doc;
 
+  DeserializationError error = deserializeJson(doc, macroFile);
 
+  if (error) {
+    Serial.print("deserializeJson() failed: ");
+    Serial.println(error.c_str());
+    return;
+  }
 
-  //left arrow on a key
-  KeyBoardAction *actionA = new KeyBoardAction();
-  actionA->add(Key(KEY_LEFT_ARROW, PRESS_AND_RELEASE));
-  actionsScreen.setAction(1, actionA);
+  JsonObject keys = doc["keys"];
 
-  //right arrow on d key
-  KeyBoardAction *actionD = new KeyBoardAction();
-  actionD->add(Key(KEY_RIGHT_ARROW, PRESS_AND_RELEASE));
-  actionsScreen.setAction(3, actionD);
-
-  //up arrow on w key
-  KeyBoardAction *actionW = new KeyBoardAction();
-  actionW->add(Key(KEY_UP_ARROW, PRESS_AND_RELEASE));
-  actionsScreen.setAction(0, actionW);
-
-  //down arrow on s key
-  KeyBoardAction *actionS = new KeyBoardAction();
-  actionS->add(Key(KEY_DOWN_ARROW, PRESS_AND_RELEASE));
-  actionsScreen.setAction(2, actionS);
-
-  //press shift on l key
-  KeyBoardAction *actionL = new KeyBoardAction();
-  actionL->add(Key(KEY_LEFT_SHIFT, PRESS));
-  actionsScreen.setAction(7, actionL);
-
-  //press ctrl+C on i key
-  KeyBoardAction *actionI = new KeyBoardAction();
-  actionI->add(Key(KEY_LEFT_CTRL, PRESS)).add(Key('c', PRESS_AND_RELEASE)).add(Key(KEY_LEFT_CTRL, RELEASE));
-  actionsScreen.setAction(4, actionI);
-
-  //press ctrl+X on j key
-  KeyBoardAction *actionJ = new KeyBoardAction();
-  actionJ->add(Key(KEY_LEFT_CTRL, PRESS)).add(Key('x', PRESS_AND_RELEASE)).add(Key(KEY_LEFT_CTRL, RELEASE));
-  actionsScreen.setAction(5, actionJ);
-
-  //press ctrl+V on k key
-  KeyBoardAction *actionK = new KeyBoardAction();
-  actionK->add(Key(KEY_LEFT_CTRL, PRESS)).add(Key('v', PRESS_AND_RELEASE)).add(Key(KEY_LEFT_CTRL, RELEASE));
-  actionsScreen.setAction(6, actionK);
+  for (int i = 0; i < 8; i++)
+  {
+    
+  }
 }
 
 void loop()
@@ -234,3 +234,112 @@ void loop()
 
   delay(100);
 }
+
+/*
+sample macro file content
+{
+    "keys": {
+        "w": {
+            "p": [
+                {
+                    "key": "UP_ARROW",
+                    "action": "pr"
+                }
+            ],
+            "r": []
+        },
+        "a": {
+            "p": [
+                {
+                    "key": "LEFT_ARROW",
+                    "action": "pr"
+                }
+            ],
+            "r": []
+        },
+        "s": {
+            "p": [
+                {
+                    "key": "DOWN_ARROW",
+                    "action": "pr"
+                }
+            ],
+            "r": []
+        },
+        "d": {
+            "p": [
+                {
+                    "key": "RIGHT_ARROW",
+                    "action": "pr"
+                }
+            ],
+            "r": []
+        },
+        "i": {
+            "p": [
+                {
+                    "key": "LEFT_CTRL",
+                    "action": "p"
+                },
+                {
+                    "key": "c",
+                    "action": "pr"
+                },
+                {
+                    "key": "LEFT_CTRL",
+                    "action": "r"
+                }
+            ],
+            "r": []
+        },
+        "j": {
+            "p": [
+                {
+                    "key": "LEFT_CTRL",
+                    "action": "p"
+                },
+                {
+                    "key": "x",
+                    "action": "pr"
+                },
+                {
+                    "key": "LEFT_CTRL",
+                    "action": "r"
+                }
+            ],
+            "r": []
+        },
+        "k": {
+            "p": [
+                {
+                    "key": "LEFT_CTRL",
+                    "action": "p"
+                },
+                {
+                    "key": "v",
+                    "action": "pr"
+                },
+                {
+                    "key": "LEFT_CTRL",
+                    "action": "r"
+                }
+            ],
+            "r": []
+        },
+        "l": {
+            "p": [
+                {
+                    "key": "LEFT_SHIFT",
+                    "action": "p"
+                }
+            ],
+            "r": [
+                {
+                    "key": "LEFT_SHIFT",
+                    "action": "r"
+                }
+            ]
+        }
+    }
+}
+*/
